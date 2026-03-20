@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from database import engine, SessionLocal
 import models
@@ -7,10 +8,19 @@ from utils import find_free_slots
 
 app = FastAPI()
 
+# ✅ CORS FIX (IMPORTANT)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow frontend (localhost:3000)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
-# Dependency to get DB session
+# Dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -24,7 +34,6 @@ def root():
     return {"message": "OpenSlots Backend Running"}
 
 
-# Create timetable entry
 @app.post("/timetable", response_model=schemas.TimetableResponse)
 def create_entry(entry: schemas.TimetableCreate, db: Session = Depends(get_db)):
     db_entry = models.TimetableEntry(**entry.model_dump())
@@ -34,13 +43,12 @@ def create_entry(entry: schemas.TimetableCreate, db: Session = Depends(get_db)):
     return db_entry
 
 
-# Get all timetable entries
 @app.get("/timetable")
 def get_entries(db: Session = Depends(get_db)):
     return db.query(models.TimetableEntry).all()
 
 
-# ✅ CLEAN FREE SLOT API (NEW)
+# ✅ FREE SLOTS API
 @app.get("/free-slots")
 def get_free_slots(db: Session = Depends(get_db)):
     entries = db.query(models.TimetableEntry).all()
